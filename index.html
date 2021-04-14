@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<style>
+			main {
+				display: flex;
+			}
+			.calculator {
+				margin-left:300px;
+				width: 400px;
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr 1fr;
+				grid-template-rows: repeat(6, 80px);
+				grid-gap: 1px;
+			}
+
+			.display {
+				grid-column: 1 / -1;
+				width: 100%;
+				height: 100%;
+				display: flex;
+				justify-content: flex-end;
+				flex-direction: column;
+			}
+			.display > div {
+				width: 100%;
+				text-align: center;
+			}
+
+			.display #result-output {
+				height: 50%;
+				color: #1b1b1b;
+				font-size: 2rem;
+			}
+			.display #num-input {
+				color: #1b1b1b;
+				height: 50%;
+				font-size: 2rem;
+				line-height: 50px;
+				font-weight: 600;
+			}
+
+			section button {
+				border: none;
+				color: #000000;
+				font-size: 2rem;
+				outline: none;
+			}
+			section button:hover {
+				background-color: #63d15f;
+			}
+
+			#zero,
+			#clear-all {
+				grid-column: span 2;
+			}
+
+			#results {
+				margin-left: 100px;
+				font-size: 2rem;
+				font-weight: bold;
+				width: 520px;
+			}
+
+			.result-card {
+				width: 200px;
+				padding: 10px;
+				color: #000000;
+				word-wrap: break-word;
+
+				/* margin-bottom: 0px; */
+			}
+		</style>
+		<title>Sezzle Coding Challenge</title>
+	</head>
+	<body>
+		<main>
+			<section class="calculator">
+				<section class="display">
+					<div id="result-output"></div>
+					<div id="num-input"></div>
+				</section>
+
+				<button data-clear="clear" id="clear-all">AC</button>
+				<button data-sign="sign">+/-</button>
+				<button data-operand="operand">÷</button>
+				<button data-integer="integer">7</button>
+				<button data-integer="integer">8</button>
+				<button data-integer="integer">9</button>
+				<button data-operand="operand">*</button>
+				<button data-integer="integer">4</button>
+				<button data-integer="integer">5</button>
+				<button data-integer="integer">6</button>
+				<button data-operand="operand">-</button>
+				<button data-integer="integer">1</button>
+				<button data-integer="integer">2</button>
+				<button data-integer="integer">3</button>
+				<button data-operand="operand">+</button>
+				<button data-integer="integer" id="zero">0</button>
+				<button data-integer="integer">.</button>
+				<button data-equals="equal">=</button>
+			</section>
+			<section id="results"></section>
+		</main>
+		<script src="/socket.io/socket.io.js"></script>
+		<script>
+			// Load the socket Client
+			let socket = io();
+
+			const operands = document.querySelectorAll("[data-operand]");
+			const integerSign = document.querySelectorAll("[data-int-sign]");
+			const allNumbers = document.querySelectorAll("[data-integer]");
+			const equal = document.querySelector("[data-equals]");
+			const clearAll = document.querySelector("[data-clear]");
+			const sign = document.querySelector("[data-sign]");
+			
+			class Calculator {
+				constructor() {
+					this.firstValue = null;
+					this.secondValue = null;
+					this.total = null;
+					this.resultOutput = document.getElementById("result-output");
+					this.numInput = document.getElementById("num-input");
+					this.operationSign = "";
+
+					// opens a socket connection when initializing class
+					socket.on("calculate", function ({ displayValue }) {
+						if (typeof displayValue === "string") {
+							const result = document.createElement("div");
+							result.className = "result-card";
+							result.innerText = displayValue;
+
+							// To display last 10 logs
+							if (document.getElementById("results").childElementCount === 10) {
+								const lastChild = document.getElementById("results").lastChild;
+								document.getElementById("results").removeChild(lastChild);
+							}
+
+							document.getElementById("results").prepend(result);
+						}
+					});
+				}
+
+				// Clears num display field
+				clearBottom() {
+					this.numInput.innerText = "";
+				}
+
+				// Clears result output field
+				clearTop() {
+					this.resultOutput.innerText = "";
+				}
+
+				// Clears top and bottom display field
+				clearAll() {
+					this.clearTop();
+					this.clearBottom();
+				}
+
+				// to maintain +/- sign on values
+				pNSign() {
+					if (this.numInput.innerText) {
+						if (this.numInput.innerText[0] === "-") {
+							this.numInput.innerText = this.numInput.innerText.slice(1);
+						} else {
+							this.numInput.innerText = "- " + this.numInput.innerText;
+						}
+					}
+				}
+
+				// Updates the bottom display field when someone clicks a number
+				updateButtonDisplay(number) {
+					if (this.total) {
+						this.total = null;
+						this.numInput.innerText = String(number);
+					} else {
+						// Make sure user is not able to click in multiple period(.) signs
+						if (this.numInput.innerText.includes(".") && number === ".") return;
+						this.numInput.innerText += String(number);
+					}
+				}
+
+				setOperand(sign) {
+					this.firstValue = this.numInput.innerText; 
+
+					this.operationSign = sign === "÷" ? "/" : sign;
+
+					this.clearBottom();
+
+					if (!!this.firstValue || this.firstValue === 0) {
+						this.resultOutput.innerText += `${this.firstValue} ${sign}`;
+					}
+				}
+
+				// Makes Calculation
+				calculate() {
+					this.secondValue = this.numInput.innerText;
+
+					if (!this.firstValue && !this.secondValue) return; // Do nothing if we don't have any numbers assign to the first or second number
+
+					// Coerces the first and the second Int into numbers, If we first int or second int is a falsy value, we get 0. The removeSpaceFromInt method removes spaces between a number and a negative sign
+					this.firstValue = Number(
+						(!!this.firstValue || this.firstValue === 0) &&
+							this.removeSpaceFromInt(this.firstValue)
+					);
+					this.secondValue = Number(
+						(!!this.secondValue || this.secondValue === 0) &&
+							this.removeSpaceFromInt(this.secondValue)
+					);
+
+					this.total = eval(`${this.firstValue} ${this.operationSign} ${this.secondValue}`);
+					this.total = Number(this.total.toFixed(6));
+					let displayValue = `${this.firstValue} ${this.operationSign} ${this.secondValue} = ${this.total}`;
+
+					this.clearAll();
+
+					// Checking if the we happen to divide a number by Zero. Display error
+					if (this.total === Infinity) {
+						displayValue = "ERROR";
+						this.numInput.innerText = "ERROR";
+						this.clearAll();
+					} else {
+						this.numInput.innerText = this.total;
+					}
+
+					socket.emit("calculate", { displayValue, lastTen: this.lastTen });
+					this.firstValue = null;
+					this.secondValue = null;
+				}
+
+				// Removes spaces from between negative signs and string Number class is able to parse the the string
+				removeSpaceFromInt(value) {
+					return value.split(" ").join("");
+				}
+			}
+
+			// Initialize calculator
+			const calculator = new Calculator();
+
+			// Click events
+			// Clear all field
+			clearAll.addEventListener("click", () => {
+				calculator.clearAll();
+			});
+
+			// Click event for numbers
+			allNumbers.forEach((number) => {
+				number.addEventListener("click", (event) => {
+					calculator.updateButtonDisplay(event.target.innerText);
+				});
+			});
+
+			// Click events for operands
+			operands.forEach((operand) => {
+				operand.addEventListener("click", (event) => {
+					calculator.setOperand(event.target.innerText);
+				});
+			});
+
+			// to Calulate
+			equal.addEventListener("click", () => {
+				calculator.calculate();
+			});
+
+			// display +/- 
+			sign.addEventListener("click", () => {
+				calculator.pNSign();
+			});
+		</script>
+	</body>
+</html>
