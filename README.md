@@ -12,6 +12,7 @@ The app must be hosted and deployed to be publicly accessible to engineers at Se
 
 # Running the application locally
 -> run ``` npm install``` in the root directory.
+
 -> run ```npm start```
 
 The application will run at http://localhost:5000.
