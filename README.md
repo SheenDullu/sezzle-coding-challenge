@@ -15,7 +15,3 @@ The app must be hosted and deployed to be publicly accessible to engineers at Se
 
 The application will run at http://localhost:5000.
 
-
-# The link of the deployed application
-
-[Calculator](https://sezzle-coding-challenge.herokuapp.com/) 🔗
